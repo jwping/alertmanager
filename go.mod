@@ -3,6 +3,7 @@ module github.com/prometheus/alertmanager
 require (
 	github.com/cenkalti/backoff v0.0.0-20181003080854-62661b46c409
 	github.com/cespare/xxhash v1.1.0
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/errors v0.19.2
 	github.com/go-openapi/loads v0.19.2
@@ -31,6 +32,8 @@ require (
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/tools v0.0.0-20190813034749-528a2984e271
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
+	gopkg.in/fsnotify.v1 v1.4.7
+	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 	gopkg.in/yaml.v2 v2.2.2
 )
 

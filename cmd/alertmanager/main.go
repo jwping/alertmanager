@@ -39,6 +39,7 @@ import (
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/common/version"
 	"gopkg.in/alecthomas/kingpin.v2"
+	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
 
 	"github.com/prometheus/alertmanager/api"
 	"github.com/prometheus/alertmanager/cluster"
@@ -187,6 +188,7 @@ func run() int {
 		dataDir         = kingpin.Flag("storage.path", "Base path for data storage.").Default("data/").String()
 		retention       = kingpin.Flag("data.retention", "How long to keep data for.").Default("120h").Duration()
 		alertGCInterval = kingpin.Flag("alerts.gc-interval", "Interval between alert GC.").Default("30m").Duration()
+		monitorConfig   = kingpin.Flag("monitor", "Monitor profile changes.").Default("false").Bool()
 
 		externalURL    = kingpin.Flag("web.external-url", "The URL under which Alertmanager is externally reachable (for example, if Alertmanager is served via a reverse proxy). Used for generating relative and absolute links back to Alertmanager itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Alertmanager. If omitted, relevant URL components will be derived automatically.").String()
 		routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").String()
@@ -496,12 +498,67 @@ func run() int {
 	}()
 
 	var (
-		hup      = make(chan os.Signal, 1)
-		hupReady = make(chan bool)
-		term     = make(chan os.Signal, 1)
+		hup         = make(chan os.Signal, 1)
+		hupReady    = make(chan bool)
+		term        = make(chan os.Signal, 1)
+		monitorChan = make(chan error)
 	)
 	signal.Notify(hup, syscall.SIGHUP)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+
+	// 添加配置文件监听器
+	if *monitorConfig {
+		//创建一个监控对象
+		watch, err := fsnotify.NewWatcher()
+		if err != nil {
+			level.Error(logger).Log("msg", "Listener creation failed", "err", err)
+			return 1
+		}
+		defer watch.Close()
+		//添加要监控的对象，文件或文件夹
+		if err = watch.Add(*configFile); err != nil {
+			level.Error(logger).Log("msg", "Failed to listen to profile", "err", err)
+			return 1
+		}
+
+		level.Info(logger).Log("msg", "Profile listening on...")
+		go func() {
+			for {
+				select {
+				case ev := <-watch.Events:
+					{
+						if len(ev.Name) == 0 {
+							level.Info(logger).Log("Profile change detected, but appears to be empty name.")
+							break
+						}
+
+						// Everything but a chmod requires rereading.
+						if ev.Op^fsnotify.Chmod == 0 {
+							break
+						}
+
+						if err := configCoordinator.Reload(); err != nil {
+							level.Error(logger).Log("msg", "Listener triggered reset, but exception", "err", err)
+						}
+
+						if err = watch.Add(*configFile); err != nil {
+							level.Error(logger).Log("msg", "Failed to listen to profile", "err", err)
+							monitorChan <- err
+							return
+						}
+
+					}
+				case err := <-watch.Errors:
+					{
+						level.Error(logger).Log("msg", "Listener exits abnormally", "err", err)
+						monitorChan <- err
+						return
+					}
+				}
+			}
+		}()
+
+	}
 
 	go func() {
 		<-hupReady
@@ -525,6 +582,8 @@ func run() int {
 			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
 			return 0
 		case <-srvc:
+			return 1
+		case <-monitorChan:
 			return 1
 		}
 	}
