@@ -1,0 +1,47 @@
+{{ define "__subject2" }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ else }}:{{ .Alerts.Resolved | len }}{{ end }}] {{ .CommonLabels.instance }}{{ end }}
+{{ define "__subject" }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}{{ end }}
+
+
+{{ define "wechat.to.test" }}JiaWeiPing{{ end }}
+{{ define "wechat.to.ops" }}{{ end }}
+{{ define "wechat.to_party" }}1{{ end }}
+{{ define "wechat.to_tag" }}TestWechat{{ end }}
+{{ define "wechat.agent_id" }}1000002{{ end }}
+{{ define "text_alert_list" }}{{ range . }}{{ range .Labels.SortedPairs }}{{ .Name }}: {{ .Value }}
+{{ end }}{{ range .Annotations.SortedPairs }}{{ .Name }}: {{ .Value }}
+{{ end }}{{ .StartsAt.Format "2006-01-02 15:04:05" }}
+
+{{ end }}{{ end }}
+
+
+{{ define "wechat.default.message2" }}{{ template "__subject" . }}
+===alertmanager监控报警===
+{{ range $i, $alert :=.Alerts }}
+告警状态：{{   .Status }}
+告警级别：{{ $alert.Labels.severity }}
+告警类型：{{ $alert.Labels.alertname }}
+故障主机: {{ $alert.Labels.instance }}
+触发阀值：{{ $alert.Annotations.value }}
+告警详情: {{ $alert.Annotations.description }}
+触发时间: {{ $alert.StartsAt.Format "2006-01-02 15:04:05" }}
+
+{{ end }}
+{{ end }}
+
+{{ define "wechat.default.message" }}{{ template "__subject" . }}
+{{ if gt (len .Alerts.Firing) 0 -}}
+----告警列表----{{ range .Alerts.Firing }}
+级别：{{ .Labels.severity }}
+类型：{{ .Labels.alertname }}
+故障主机: {{ .Labels.instance }}
+详情: {{ .Annotations.summary }}
+触发时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+
+{{ end }}{{ end }}{{ if gt (len .Alerts.Resolved) 0 -}}----恢复列表----{{ range .Alerts.Resolved }}
+级别：{{ .Labels.severity }}
+类型：{{ .Labels.alertname }}
+故障主机: {{ .Labels.instance }}
+详情: {{ .Annotations.summary }}
+触发时间: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+
+{{ end }}{{ end }}{{- end }}

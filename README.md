@@ -29,6 +29,28 @@ make build BINARIES=alertmanager
 
 使用`--monitor`参数指明开启文件监听
 
-
-
 其他信息请参见[官方README](https://github.com/jwping/alertmanager/blob/master/AREADME.md)
+
+## 4. 修改说明
+
+```shell
+cmd/alertmanager/main.go
+
+// L42引入fsnotify包
+fsnotify "gopkg.in/fsnotify/fsnotify.v1"
+
+// L187新增配置文件变动监听项开关
+monitorConfig   = kingpin.Flag("monitor", "Monitor profile changes.").Default("false").Bool()
+
+// L503定义错误缓冲chan
+monitorChan = make(chan error)
+
+// L509增加配置文件监听器逻辑
+// 详见源码
+
+// L585配置文件监听器error chan捕获
+case <-monitorChan:
+	return 1
+	
+// 新增主程序配置文件模板、邮件以及微信告警模板（短信告警模板在iflytek_sms程序内，无template）
+```

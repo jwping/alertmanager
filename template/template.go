@@ -86,18 +86,6 @@ func FromGlobs(paths ...string) (*Template, error) {
 	return t, nil
 }
 
-func deleteTailBlank(str string) string {
-	spaceNum := 0
-	for i := len(str) - 1; i >= 0; i-- { // 去除字符串尾部的所有空格
-		if str[i] == ' ' || str[i] == '\n' || str[i] == '\r' {
-			spaceNum++
-		} else {
-			break
-		}
-	}
-	return str[:len(str)-spaceNum]
-}
-
 // ExecuteTextString needs a meaningful doc comment (TODO(fabxc)).
 func (t *Template) ExecuteTextString(text string, data interface{}) (string, error) {
 	if text == "" {
@@ -113,7 +101,7 @@ func (t *Template) ExecuteTextString(text string, data interface{}) (string, err
 	}
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, data)
-	return deleteTailBlank(buf.String()), err
+	return buf.String(), err
 }
 
 // ExecuteHTMLString needs a meaningful doc comment (TODO(fabxc)).
